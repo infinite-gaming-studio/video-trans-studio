@@ -57,7 +57,7 @@ async def run_pipeline(video_path, target_lang="zh-cn"):
         await tts.generate_full_audio(translated_segments, dubbed_audio_path)
         
         # 5. LipSync (MuseTalk)
-        await self.update_progress(80, "Lip-Syncing (MuseTalk Syncing)")
+        await update_progress(80, "Lip-Syncing (MuseTalk Syncing)")
         lipsync = LipSyncProcessor()
         await lipsync.sync(video_path, dubbed_audio_path, final_video_path)
         
