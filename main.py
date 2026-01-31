@@ -22,6 +22,15 @@ def run_pipeline(video_path, target_lang="zh-cn"):
         print(f"❌ Video not found: {video_path}")
         return
 
+    # 获取视频文件名（不含扩展名）并创建输出子目录
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
+    project_output_dir = Config.OUTPUT_DIR / video_name
+    project_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    print("\n" + "="*50)
+    print(f"📂 Project Output Directory: {project_output_dir}")
+    print("="*50)
+
     print("\n" + "="*50)
     print("🚀 STEP 1: Extracting Audio from Video...")
     audio_path = AudioProcessor.extract_audio(video_path)
@@ -44,21 +53,22 @@ def run_pipeline(video_path, target_lang="zh-cn"):
     print("\n" + "="*50)
     print("🚀 STEP 4: Text-to-Speech (TTS) Generation...")
     tts = TTSProcessor()
-    dubbed_audio_path = str(Config.TEMP_DIR / "dubbed_audio.wav")
+    # 将配音音频也保存在项目文件夹中
+    dubbed_audio_path = str(project_output_dir / "dubbed_audio.wav")
     tts.generate_full_audio(translated_segments, dubbed_audio_path)
     print(f"✅ Dubbed audio generated: {dubbed_audio_path}")
     
     print("\n" + "="*50)
     print("🚀 STEP 5: Lip-Syncing (Wav2Lip)...")
     lipsync = LipSyncProcessor()
-    final_output_name = f"final_{os.path.splitext(os.path.basename(video_path))[0]}.mp4"
-    final_video_path = str(Config.OUTPUT_DIR / final_output_name)
+    final_video_path = str(project_output_dir / f"final_{video_name}_{target_lang}.mp4")
     
     lipsync.sync(video_path, dubbed_audio_path, final_video_path)
     
     print("\n" + "="*50)
     print(f"🎉 Pipeline Finished Successfully!")
-    print(f"📦 Final Result saved at: {final_video_path}")
+    print(f"📦 Final Result: {final_video_path}")
+    print(f"📄 Also check: {dubbed_audio_path}")
     print("="*50)
 
 if __name__ == "__main__":
