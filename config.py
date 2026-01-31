@@ -39,6 +39,16 @@ class Config:
         "whisper": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/whisper/tiny.pt"
     }
 
+    # Index-TTS2 Configuration (Modern Voice Cloning)
+    INDEXTTS_REPO_URL = "https://github.com/index-tts/index-tts.git"
+    INDEXTTS_MODEL_DIR = BASE_DIR / "checkpoints/indextts"
+    INDEXTTS_CONFIG_PATH = INDEXTTS_MODEL_DIR / "config.yaml"
+    INDEXTTS_MODELS = {
+        "config.yaml": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/config.yaml",
+        "model.safetensors": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/model.safetensors",
+        "vocab.json": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/vocab.json"
+    }
+
     @classmethod
     def print_info(cls):
         print(f"✅ Running on: {cls.DEVICE.upper()}")

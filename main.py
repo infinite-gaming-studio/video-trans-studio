@@ -61,11 +61,14 @@ async def run_pipeline(video_path, target_lang="en"):
         translated_segments = translator.translate_segments(segments)
         SubtitleGenerator.save_srt(translated_segments, translated_srt_path)
         
-        # 4. TTS (Edge-TTS)
-        tracker.set_step(3, "TTS Generation (Edge-TTS Generating)")
+        # 4. TTS (Index-TTS2 Voice Cloning)
+        tracker.set_step(3, "TTS Generation (Index-TTS2 Cloning)")
         tts = TTSProcessor()
         dubbed_audio_path = str(project_output_dir / "dubbed_audio.wav")
-        await tts.generate_full_audio(translated_segments, dubbed_audio_path)
+        # Pass the original audio path for speaker cloning
+        await tts.generate_full_audio(translated_segments, audio_path, dubbed_audio_path)
+        tts.unload()
+        cleanup_vram()
         
         # 5. LipSync (MuseTalk)
         tracker.set_step(4, "Lip-Syncing (MuseTalk Syncing)")

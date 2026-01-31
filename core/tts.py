@@ -1,127 +1,152 @@
 import asyncio
-import edge_tts
-from config import Config
-from pydub import AudioSegment
 import os
 import torch
-import soundfile as sf
+import gc
+import sys
 import subprocess
+import requests
+import numpy as np
+from pathlib import Path
+from pydub import AudioSegment
+from tqdm import tqdm
+from config import Config
 
 class TTSProcessor:
-    """Industrial-grade TTS Processor with precise sync and buffer management."""
-    def __init__(self, voice="en-US-ChristopherNeural"):
-        self.voice = voice
+    """
+    Industrial-grade TTS Processor using Index-TTS2 for Zero-shot Voice Cloning.
+    Replaces legacy Edge-TTS for high-fidelity, synchronized output.
+    """
+    def __init__(self, device="cuda"):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.repo_path = Config.BASE_DIR / "index-tts"
+        self.model_dir = Config.INDEXTTS_MODEL_DIR
+        self.model = None
 
-    async def _generate_audio(self, text, output_file, rate="+0%"):
-        """Generates audio with native rate control."""
-        communicate = edge_tts.Communicate(text, self.voice, rate=rate)
-        await communicate.save(output_file)
+    def setup(self):
+        """Ensures Index-TTS2 repo and models are ready."""
+        if not self.repo_path.exists():
+            print("📥 Cloning Index-TTS2 repository...")
+            subprocess.run(["git", "clone", Config.INDEXTTS_REPO_URL], check=True)
+            # Add to path for imports
+            if str(self.repo_path) not in sys.path:
+                sys.path.append(str(self.repo_path))
 
-    async def generate_full_audio(self, segments, output_path):
-        print(f"🗣️ Executing Audio Rendering Pipeline for {len(segments)} segments...")
-        
-        semaphore = asyncio.Semaphore(10)
-        temp_dir = Config.TEMP_DIR / "tts_segments"
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        self._download_models()
+
+    def _download_models(self):
+        """Downloads Index-TTS2 weights if missing."""
+        for name, url in Config.INDEXTTS_MODELS.items():
+            dest = self.model_dir / name
+            if not dest.exists():
+                print(f"📥 Downloading Index-TTS2 weight: {name}")
+                response = requests.get(url, stream=True)
+                total = int(response.headers.get('content-length', 0))
+                with open(dest, 'wb') as f, tqdm(total=total, unit='B', unit_scale=True, desc=name) as pbar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        pbar.update(len(chunk))
+
+    def load_model(self):
+        """Loads Index-TTS2 into VRAM."""
+        if self.model is None:
+            self.setup()
+            print("⏳ Loading Index-TTS2 into VRAM (FP16 mode)...")
+            try:
+                # Add repo to sys.path to allow internal imports
+                sys.path.append(str(self.repo_path))
+                from indextts.infer_v2 import IndexTTS2
+                
+                self.model = IndexTTS2(
+                    cfg_path=str(Config.INDEXTTS_CONFIG_PATH),
+                    model_dir=str(self.model_dir),
+                    use_fp16=True if self.device == "cuda" else False
+                )
+                print("✅ Index-TTS2 Model Loaded.")
+            except Exception as e:
+                print(f"❌ Failed to load Index-TTS2: {e}")
+                raise
+
+    async def generate_full_audio(self, segments, original_audio_path, output_path):
+        """
+        Generates full dubbed audio with voice cloning for each segment.
+        - segments: List of translated segments (with start, end, text)
+        - original_audio_path: Path to the original full audio wav
+        """
+        self.load_model()
+        print(f"🗣️ Cloning voices and rendering {len(segments)} segments...")
+
+        # Create temp dir for segments
+        temp_dir = Config.TEMP_DIR / "indextts_segments"
         temp_dir.mkdir(exist_ok=True)
-
-        async def _process_segment(i, seg):
-            async with semaphore:
-                temp_file = temp_dir / f"seg_{i:04d}.mp3"
-                wav_file = temp_dir / f"seg_{i:04d}.wav"
-                
-                # 语速预估
-                original_duration = seg['end'] - seg['start']
-                text = seg['text']
-                word_count = len(text.split())
-                estimated_duration = word_count / 3.0 # 经验常数
-                
-                rate_str = "+0%"
-                if original_duration > 0:
-                    ratio = estimated_duration / original_duration
-                    if ratio > 1.2: rate_str = "+20%"
-                    elif ratio < 0.8: rate_str = "-15%"
-                    else:
-                        inc = int((ratio - 1) * 100)
-                        rate_str = f"{'+' if inc >= 0 else ''}{inc}%"
-
-                await self._generate_audio(text, str(temp_file), rate=rate_str)
-                
-                # 诊断与渲染优化：立即将 MP3 转换为标准的 PCM WAV 格式，统一采样率
-                # 解决“编解码器性能”和“采样率不匹配”导致的断音
-                try:
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", str(temp_file), 
-                        "-ar", "44100", "-ac", "2", str(wav_file)
-                    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                except:
-                    print(f"⚠️ Warning: FFmpeg conversion failed for segment {i}")
-                    wav_file = temp_file # 降级处理
-
-                return i, wav_file
-
-        tasks = [_process_segment(i, seg) for i, seg in enumerate(segments)]
-        results = await asyncio.gather(*tasks)
-        results.sort(key=lambda x: x[0])
-
-        print(f"🧩 Analyzing Buffers and Synchronizing Streams...")
-        # 初始化一个空的高品质音轨
+        
+        # Load full original audio for cropping reference samples
+        orig_audio = AudioSegment.from_wav(original_audio_path)
+        
         combined_audio = AudioSegment.silent(duration=0, frame_rate=44100)
         
-        for (i, wav_file), seg in zip(results, segments):
+        for i, seg in enumerate(segments):
             start_ms = int(seg['start'] * 1000)
+            end_ms = int(seg['end'] * 1000)
+            text = seg['text']
             
-            if not os.path.exists(wav_file) or os.path.getsize(wav_file) < 100:
-                continue
+            # Extract original segment as voice prompt for cloning
+            # We take the original segment audio as the reference speaker prompt
+            ref_path = temp_dir / f"ref_{i:04d}.wav"
+            ref_seg = orig_audio[start_ms:end_ms]
+            # If segment is too short, extend it for better cloning (Index-TTS needs ~3-5s for best results)
+            if len(ref_seg) < 3000:
+                # Try to take a bit more around it
+                pad_start = max(0, start_ms - 1000)
+                pad_end = min(len(orig_audio), end_ms + 1000)
+                ref_seg = orig_audio[pad_start:pad_end]
+            ref_seg.export(str(ref_path), format="wav")
 
-            # 诊断音频流中断：使用 pydub 加载 PCM 数据
-            seg_audio = AudioSegment.from_file(wav_file)
+            # Output path for synthesized segment
+            seg_out_path = temp_dir / f"syn_{i:04d}.wav"
             
-            # 缓冲区管理：精确计算静音填充，确保 combined_audio 的 Base 永远长于叠加位置
-            current_len = len(combined_audio)
-            if current_len < start_ms:
-                # 补齐到起始位置
-                combined_audio += AudioSegment.silent(duration=start_ms - current_len, frame_rate=44100)
+            print(f"🎙️ Rendering Segment {i} (Cloning Original Voice)...")
+            # Index-TTS2 inference is synchronous, so we run in executor if needed
+            # but usually okay to run sequential for high quality
+            self.model.infer(
+                spk_audio_prompt=str(ref_path),
+                text=text,
+                output_path=str(seg_out_path)
+            )
             
-            # 验证同步机制：
-            # 如果是顺序排列且无重叠，直接追加 (Append) 以获得最佳性能
-            # 如果有重叠（由于语速限制），则进行 Overlay
-            if len(combined_audio) <= start_ms:
-                combined_audio += seg_audio
-            else:
-                # 处理重叠：先扩充 Base，再叠加
-                needed_len = start_ms + len(seg_audio)
-                if len(combined_audio) < needed_len:
-                    extension = needed_len - len(combined_audio)
-                    combined_audio += AudioSegment.silent(duration=extension, frame_rate=44100)
+            # Load and Merge with Sync Protection
+            if seg_out_path.exists():
+                syn_audio = AudioSegment.from_wav(str(seg_out_path))
                 
-                combined_audio = combined_audio.overlay(seg_audio, position=start_ms)
+                # Dynamic Sync (Rate check) - Index-TTS is natural but text might be long
+                # If much longer than original, we might need a slight stretch
+                target_dur = end_ms - start_ms
+                if len(syn_audio) > target_dur * 1.2 and target_dur > 0:
+                    speed = min(len(syn_audio) / target_dur, 1.25)
+                    syn_audio = syn_audio.speedup(playback_speed=speed, chunk_size=150, crossfade=25)
 
-            # 渲染完成后清理
-            if os.path.exists(wav_file): os.remove(wav_file)
-            mp3_file = str(wav_file).replace(".wav", ".mp3")
-            if os.path.exists(mp3_file): os.remove(mp3_file)
-        
-        # 优化音频渲染管道：最终归一化导出
-        print(f"✅ Rendering Complete. Final Duration: {len(combined_audio)/1000:.2f}s")
+                # Ensure base is long enough
+                if len(combined_audio) < start_ms:
+                    combined_audio += AudioSegment.silent(duration=start_ms - len(combined_audio), frame_rate=44100)
+                
+                # Overlay
+                combined_audio = combined_audio.overlay(syn_audio, position=start_ms)
+                
+                # Cleanup temp segment files
+                os.remove(ref_path)
+                os.remove(seg_out_path)
+
+        # Export final merged audio
         combined_audio.export(output_path, format="wav", parameters=["-ar", "44100", "-ac", "2"])
+        print(f"✅ Voice Cloned Dubbing Complete: {output_path}")
         return output_path
 
-class IndexTTSProcessor:
-    def __init__(self, device="cuda"):
-        self.device = device
-        self.model_name = "IndexTeam/IndexTTS-2"
-        self.model = None
-    
-    def load_model(self):
-        if self.model is None:
-            print("⏳ Loading Index-TTS2...")
-            print("✅ Index-TTS2 Ready.")
-
-    def generate_with_cloning(self, text, ref_audio_path, output_path):
-        self.load_model()
-        pass
-
     def unload(self):
+        """Releases VRAM."""
         if self.model:
             del self.model
-            torch.cuda.empty_cache()
+            self.model = None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            print("🗑️ Index-TTS2 Unloaded from VRAM.")
