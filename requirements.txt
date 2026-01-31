@@ -21,4 +21,10 @@ python-dotenv
 ffmpeg-python
 gdown
 huggingface_hub
+einops
+vector_quantize_pytorch
+omegaconf
+hydra-core
+vocos
+librosa==0.9.1
 deep-translator
