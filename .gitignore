@@ -69,3 +69,4 @@ Wav2Lip/
 *.wav
 *.mp3
 .DS_Store
+Video_Trans_Studio.ipynb
