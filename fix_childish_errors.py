@@ -24,7 +24,7 @@ else:
 # 2. 高效版本检测 (不依赖加载模块，不依赖文件扫描)
 def get_env_status():
     pkg_name = "transformers"
-    min_ver = "4.41.0"
+    min_ver = "4.46.0"
     
     try:
         # 检查磁盘版本

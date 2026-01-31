@@ -26,16 +26,25 @@ class LipSyncProcessor:
         self._download_models()
 
     def _download_models(self):
-        """Downloads LivePortrait checkpoints."""
+        """Downloads LivePortrait checkpoints with specific path handling."""
         print("📥 Checking LivePortrait models...")
         from huggingface_hub import snapshot_download
         
         try:
+            # We need to ensure the models are in the right sub-directory for LivePortrait's internal code
             snapshot_download(
                 repo_id="KwaiVGI/LivePortrait",
                 local_dir=self.ckpt_dir,
                 local_dir_use_symlinks=False
             )
+            
+            # Fix directory structure if needed (LivePortrait expects models in pretrained_weights)
+            if not (self.ckpt_dir / "base_models").exists() and (self.ckpt_dir / "LivePortrait/base_models").exists():
+                import shutil
+                print("🚚 Moving models to correct location...")
+                for item in os.listdir(self.ckpt_dir / "LivePortrait"):
+                    shutil.move(str(self.ckpt_dir / "LivePortrait" / item), str(self.ckpt_dir / item))
+            
             print("✅ LivePortrait models ready.")
         except Exception as e:
             print(f"❌ Error downloading models: {e}")
