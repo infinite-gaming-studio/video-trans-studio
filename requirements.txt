@@ -1,6 +1,9 @@
 torch>=2.0.0
 torchaudio>=2.0.0
 torchvision>=0.15.0
+transformers
+accelerate
+sentencepiece
 numpy
 opencv-python
 librosa
@@ -10,11 +13,12 @@ pydub
 moviepy
 faster-whisper
 edge-tts
+deep-translator
 openai
 requests
 aiohttp
 python-dotenv
 ffmpeg-python
-# For Wav2Lip (often requires specific older vision/audio libs, but we will try compatibility mode or custom implementation)
 gdown
+huggingface_hub
 deep-translator

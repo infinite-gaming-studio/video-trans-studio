@@ -25,12 +25,15 @@ find Wav2Lip -name "*.py" -exec sed -i 's/from collections import Iterable/from 
 # 4. Create directory structure
 mkdir -p checkpoints output temp
 
-# 5. Download Model Weights (Wav2Lip-GAN)
+# 5. Download Model Weights
 if [ ! -f "checkpoints/wav2lip_gan.pth" ]; then
     echo "📥 Downloading Wav2Lip-GAN weights..."
-    # Using a reliable HuggingFace mirror/direct link
     wget "https://huggingface.co/goutham79/Wav2Lip-GAN/resolve/main/checkpoints/Wav2Lip_GAN.pth" -O checkpoints/wav2lip_gan.pth -q
 fi
+
+# Pre-download NLLB model to cache
+echo "📥 Pre-downloading NLLB-200 Translation model..."
+python3 -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; AutoTokenizer.from_pretrained('facebook/nllb-200-distilled-600M'); AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M')"
 
 echo "✅ Setup Complete! Ready to process videos."
 echo "💡 Usage: python main.py your_video.mp4 zh-cn"
