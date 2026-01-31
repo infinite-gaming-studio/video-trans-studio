@@ -8,7 +8,7 @@ from core.asr import ASRProcessor
 from core.translator import Translator
 from core.tts import TTSProcessor
 from core.lipsync import LipSyncProcessor
-from core.utils import ProgressTracker
+from core.utils import ProgressTracker, SubtitleGenerator
 
 def cleanup_vram():
     """Forcefully clear VRAM."""
@@ -38,8 +38,10 @@ async def run_pipeline(video_path, target_lang="en"):
         project_output_dir = Config.OUTPUT_DIR / video_name
         project_output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Define output file path
+        # Define output file paths
         final_video_path = str(project_output_dir / f"final_{video_name}_{target_lang}.mp4")
+        original_srt_path = str(project_output_dir / f"{video_name}_original.srt")
+        translated_srt_path = str(project_output_dir / f"{video_name}_{target_lang}.srt")
         
         # 1. Extract Audio
         tracker.set_step(0, "Audio Extraction (Extracting Wav)")
@@ -49,6 +51,7 @@ async def run_pipeline(video_path, target_lang="en"):
         tracker.set_step(1, "ASR Transcription (Whisper Large-v3)")
         asr = ASRProcessor()
         segments = asr.transcribe(audio_path)
+        SubtitleGenerator.save_srt(segments, original_srt_path)
         asr.unload() 
         cleanup_vram()
         
@@ -56,6 +59,7 @@ async def run_pipeline(video_path, target_lang="en"):
         tracker.set_step(2, f"Translation (NLLB to {target_lang})")
         translator = Translator(target_lang=target_lang)
         translated_segments = translator.translate_segments(segments)
+        SubtitleGenerator.save_srt(translated_segments, translated_srt_path)
         
         # 4. TTS (Edge-TTS)
         tracker.set_step(3, "TTS Generation (Edge-TTS Generating)")

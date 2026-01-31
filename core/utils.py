@@ -53,3 +53,27 @@ class ProgressTracker:
         self.start_time = time.time()
         self.thread = threading.Thread(target=self._report_loop, daemon=True)
         self.thread.start()
+
+class SubtitleGenerator:
+    @staticmethod
+    def format_time(seconds):
+        """Converts seconds to SRT time format: HH:MM:SS,mmm"""
+        milliseconds = int((seconds - int(seconds)) * 1000)
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
+
+    @staticmethod
+    def save_srt(segments, output_path):
+        """
+        Saves segments to an SRT file.
+        segments: List of dicts with 'start', 'end', and 'text'
+        """
+        with open(output_path, 'w', encoding='utf-8') as f:
+            for i, seg in enumerate(segments, 1):
+                start = SubtitleGenerator.format_time(seg['start'])
+                end = SubtitleGenerator.format_time(seg['end'])
+                text = seg['text'].strip()
+                f.write(f"{i}\n{start} --> {end}\n{text}\n\n")
+        print(f"📄 Subtitles saved to: {output_path}")
