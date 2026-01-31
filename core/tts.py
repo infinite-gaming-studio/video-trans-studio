@@ -79,8 +79,22 @@ class TTSProcessor:
                     setattr(transformers.cache_utils, attr, DummyAttr)
                     missing_attrs.append(attr)
             
+            # 3. ExtensionsTrie in tokenization_utils
+            # Often moved to tokenization_utils_base or renamed in newer versions
+            import transformers.tokenization_utils
+            if not hasattr(transformers.tokenization_utils, "ExtensionsTrie"):
+                try:
+                    from transformers.tokenization_utils_base import ExtensionsTrie
+                    transformers.tokenization_utils.ExtensionsTrie = ExtensionsTrie
+                    print("🩹 Aliased ExtensionsTrie from tokenization_utils_base")
+                except ImportError:
+                    class DummyTrie:
+                        def __init__(self, *args, **kwargs): pass
+                    transformers.tokenization_utils.ExtensionsTrie = DummyTrie
+                    missing_attrs.append("ExtensionsTrie")
+            
             if missing_attrs:
-                print(f"🩹 Applied hotpatch for missing transformers.cache_utils: {', '.join(missing_attrs)}")
+                print(f"🩹 Applied hotpatch for missing transformers components: {', '.join(missing_attrs)}")
         except Exception as e:
             print(f"⚠️ Hotpatch application failed (non-critical): {e}")
 
