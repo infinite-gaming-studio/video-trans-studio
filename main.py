@@ -15,7 +15,7 @@ def cleanup_vram():
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-def run_pipeline(video_path, target_lang="zh-cn"):
+async def run_pipeline(video_path, target_lang="zh-cn"):
     Config.print_info()
     
     if not os.path.exists(video_path):
@@ -55,7 +55,7 @@ def run_pipeline(video_path, target_lang="zh-cn"):
     tts = TTSProcessor()
     # 将配音音频也保存在项目文件夹中
     dubbed_audio_path = str(project_output_dir / "dubbed_audio.wav")
-    tts.generate_full_audio(translated_segments, dubbed_audio_path)
+    await tts.generate_full_audio(translated_segments, dubbed_audio_path)
     print(f"✅ Dubbed audio generated: {dubbed_audio_path}")
     
     print("\n" + "="*50)
@@ -81,4 +81,5 @@ if __name__ == "__main__":
     video_input = sys.argv[1]
     lang_input = sys.argv[2] if len(sys.argv) > 2 else "zh-cn"
     
-    run_pipeline(video_input, lang_input)
+    import asyncio
+    asyncio.run(run_pipeline(video_input, lang_input))

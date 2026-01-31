@@ -15,7 +15,7 @@ class TTSProcessor:
         communicate = edge_tts.Communicate(text, self.voice)
         await communicate.save(output_file)
 
-    def generate_full_audio(self, segments, output_path):
+    async def generate_full_audio(self, segments, output_path):
         print(f"🗣️ Generating TTS audio via Edge-TTS...")
         combined_audio = AudioSegment.empty()
         current_time_ms = 0
@@ -28,7 +28,8 @@ class TTSProcessor:
                 combined_audio += AudioSegment.silent(duration=silence_duration)
                 current_time_ms += silence_duration
             
-            asyncio.run(self._generate_audio(seg['text'], str(temp_segment_file)))
+            # 直接 await，不再使用 asyncio.run()
+            await self._generate_audio(seg['text'], str(temp_segment_file))
             seg_audio = AudioSegment.from_mp3(temp_segment_file)
             combined_audio += seg_audio
             current_time_ms += len(seg_audio)
