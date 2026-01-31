@@ -19,17 +19,10 @@ class Config:
     GPU_NAME = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "N/A"
     
     # Model Configurations
-    WHISPER_MODEL_SIZE = "large-v3" # Fits on T4 easily
+    WHISPER_MODEL_SIZE = "large-v3"
     WHISPER_COMPUTE_TYPE = "float16" if DEVICE == "cuda" else "int8"
     
-    # TTS Configuration
-    TTS_VOICE = "en-US-ChristopherNeural" # Default Edge-TTS voice
-    
-    # Wav2Lip Configuration (Legacy)
-    WAV2LIP_BATCH_SIZE = 128
-    WAV2LIP_GAN_WEIGHTS_URL = "https://huggingface.co/goutham79/Wav2Lip-GAN/resolve/main/checkpoints/Wav2Lip_GAN.pth"
-    
-    # MuseTalk Configuration (Modern)
+    # MuseTalk Configuration (State-of-the-Art)
     MUSETALK_REPO_URL = "https://github.com/TMElyralab/MuseTalk.git"
     MUSETALK_CHECKPOINTS = {
         "musetalk": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/musetalk/musetalk.pth",
@@ -41,7 +34,7 @@ class Config:
 
     # Index-TTS2 Configuration (Modern Voice Cloning)
     INDEXTTS_REPO_URL = "https://github.com/index-tts/index-tts.git"
-    INDEXTTS_MODEL_DIR = BASE_DIR / "checkpoints/indextts"
+    INDEXTTS_MODEL_DIR = CHECKPOINTS_DIR / "indextts"
     INDEXTTS_CONFIG_PATH = INDEXTTS_MODEL_DIR / "config.yaml"
     INDEXTTS_MODELS = {
         "config.yaml": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/config.yaml",

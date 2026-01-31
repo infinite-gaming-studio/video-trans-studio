@@ -1,10 +1,36 @@
+# Core AI Infrastructure
 torch>=2.0.0
 torchaudio>=2.0.0
 torchvision>=0.15.0
 transformers>=4.40.0
-accelerate
+accelerate>=0.26.0
 sentencepiece
-numpy
-opencv-python
-librosa==0.9.1
+numpy>=2.0.0
+
+# Audio Processing (Modern versions)
+librosa>=0.10.0
 soundfile
+pydub
+edge-tts
+
+# Video Processing
+opencv-python
+moviepy
+
+# ASR & Translation
+faster-whisper>=1.0.0
+deep-translator
+huggingface_hub
+
+# Utils
+tqdm
+requests
+aiohttp
+python-dotenv
+ffmpeg-python
+gdown
+einops
+vector_quantize_pytorch
+omegaconf
+hydra-core
+vocos
