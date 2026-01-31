@@ -75,15 +75,15 @@ class TTSProcessor:
             sys.path.insert(0, str(self.repo_path))
             from indextts.infer_v2 import IndexTTS2
                 
-                self.model = IndexTTS2(
-                    cfg_path=str(Config.INDEXTTS_CONFIG_PATH),
-                    model_dir=str(self.model_dir),
-                    use_fp16=True if self.device == "cuda" else False
-                )
-                print("✅ Index-TTS2 Model Loaded.")
-            except Exception as e:
-                print(f"❌ Failed to load Index-TTS2: {e}")
-                raise
+            self.model = IndexTTS2(
+                cfg_path=str(Config.INDEXTTS_CONFIG_PATH),
+                model_dir=str(self.model_dir),
+                use_fp16=True if self.device == "cuda" else False
+            )
+            print("✅ Index-TTS2 Model Loaded.")
+        except Exception as e:
+            print(f"❌ Failed to load Index-TTS2: {e}")
+            raise
 
     async def generate_full_audio(self, segments, original_audio_path, output_path):
         """
