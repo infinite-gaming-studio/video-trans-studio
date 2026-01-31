@@ -7,9 +7,14 @@ apt-get update -qq && apt-get install -y ffmpeg -qq
 
 # 2. Install Python requirements
 echo "🐍 Installing Python libraries..."
+# Force reinstall transformers to fix potential corruption
+pip install --upgrade --force-reinstall transformers -q
+pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu118 -q
+pip install accelerate sentencepiece deep-translator -q
 pip install -r requirements.txt -q
-# Wav2Lip often breaks with newer librosa, forcing 0.8.0 is a known fix
-pip install librosa==0.8.0 -q
+
+# Fix for NLLB model loading in some environments
+pip install protobuf==3.20.3 -q
 
 # 3. Setup Wav2Lip and Index-TTS2
 if [ ! -d "Wav2Lip" ]; then
@@ -18,8 +23,9 @@ if [ ! -d "Wav2Lip" ]; then
 fi
 
 if [ ! -d "index-tts" ]; then
-    echo "📥 Cloning Index-TTS2 repository..."
-    git clone https://github.com/index-tts/index-tts.git -q
+    echo "📥 Cloning Index-TTS2 repository (skipping large files)..."
+    # Skip LFS to avoid budget exceeded errors
+    GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/index-tts/index-tts.git -q
 fi
 
 # Fixes for Wav2Lip (Python 3.10+ compatibility)
