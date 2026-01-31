@@ -14,7 +14,8 @@ class ProgressTracker:
             "ASR Transcription",
             "Translation",
             "TTS Generation",
-            "Lip-Syncing"
+            "Lip-Syncing",
+            "Complete"
         ]
         self.step_index = 0
 

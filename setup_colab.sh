@@ -13,7 +13,7 @@ pip uninstall -y transformers tokenizers protobuf librosa -q
 echo "🐍 Installing Python libraries (this may take a few minutes)..."
 # A. Base AI Infrastructure
 pip install --no-cache-dir torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu118 -q
-pip install --no-cache-dir "transformers==4.38.0" "tokenizers>=0.14" "protobuf==3.20.3" -q
+pip install --no-cache-dir "transformers>=4.40.0" "tokenizers>=0.14" "protobuf==3.20.3" -q
 pip install --no-cache-dir accelerate sentencepiece -q
 
 # B. Project Requirements
