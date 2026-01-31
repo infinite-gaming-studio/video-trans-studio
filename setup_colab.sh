@@ -26,6 +26,11 @@ if [ ! -d "index-tts" ]; then
     GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/index-tts/index-tts.git -q
 fi
 
+# 4.5 Install MuseTalk & Index-TTS2 Specific Dependencies
+echo "📦 Installing MuseTalk and Index-TTS2 dependencies..."
+pip install --no-cache-dir diffusers face-alignment -q
+pip install --no-cache-dir -r MuseTalk/requirements.txt -q
+
 # 5. Create directory structure
 mkdir -p checkpoints output temp
 
