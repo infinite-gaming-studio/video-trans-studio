@@ -42,16 +42,12 @@ class LipSyncProcessor:
     def _apply_patches(self):
         """Fixes compatibility issues in MuseTalk for modern environments."""
         print("🩹 Applying compatibility patches to MuseTalk...")
-        # MuseTalk is newer but might still need fixes for specific environments
-        # Add __init__.py to make it a package
         (self.repo_path / "__init__.py").touch()
         
-        # Example patch: Ensure requirements are met without conflicts
         req_file = self.repo_path / "requirements.txt"
         if req_file.exists():
             with open(req_file, 'r') as f:
                 lines = f.readlines()
-            # Remove conflicting torch/numpy versions from repo requirements
             filtered = [l for l in lines if not any(x in l for x in ["torch", "numpy", "opencv"])]
             with open(req_file, 'w') as f:
                 f.writelines(filtered)
@@ -90,16 +86,12 @@ class LipSyncProcessor:
 
         print("👄 Starting MuseTalk LipSync - High Fidelity Mode...")
         
-        # MuseTalk usually runs via an inference script
-        # We need to set up the PYTHONPATH so it can find its own modules
         env = os.environ.copy()
         env["PYTHONPATH"] = f"{self.repo_path}:{env.get('PYTHONPATH', '')}"
 
-        # MuseTalk inference command (example structure, depends on actual repo script)
-        # Note: MuseTalk typically uses a config-based or arg-based inference
         cmd = [
             "python", str(self.repo_path / "scripts/inference.py"),
-            "--inference_config", str(self.repo_path / "configs/inference/test_config.yaml"), # Default or custom
+            "--inference_config", str(self.repo_path / "configs/inference/test_config.yaml"),
             "--video_path", str(video_path),
             "--audio_path", str(audio_path),
             "--output_path", str(output_path)
@@ -122,7 +114,6 @@ class LipSyncProcessor:
                 return output_path
             else:
                 print(f"❌ MuseTalk failed (code {process.returncode}). Check logs.")
-                # If MuseTalk fails (e.g. OOM), fallback to basic merge to ensure pipeline finishes
                 return self._merge_audio_only(video_path, audio_path, output_path)
         except Exception as e:
             print(f"❌ Error during MuseTalk execution: {e}")

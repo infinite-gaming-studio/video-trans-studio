@@ -56,10 +56,9 @@ async def run_pipeline(video_path, target_lang="zh-cn"):
         dubbed_audio_path = str(project_output_dir / "dubbed_audio.wav")
         await tts.generate_full_audio(translated_segments, dubbed_audio_path)
         
-        # 5. LipSync (Wav2Lip)
-        tracker.set_step(4, "Wav2Lip Syncing")
+        # 5. LipSync (MuseTalk)
+        await self.update_progress(80, "Lip-Syncing (MuseTalk Syncing)")
         lipsync = LipSyncProcessor()
-        final_video_path = str(project_output_dir / f"final_{video_name}_{target_lang}.mp4")
         await lipsync.sync(video_path, dubbed_audio_path, final_video_path)
         
         tracker.set_step(5, "Complete")
