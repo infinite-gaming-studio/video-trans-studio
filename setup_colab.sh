@@ -12,6 +12,7 @@ pip uninstall -y transformers tokenizers protobuf librosa numpy -q
 # 3. Install Modern Python Infrastructure
 echo "🐍 Installing modern AI libraries..."
 pip install --no-cache-dir torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu118 -q
+pip install --no-cache-dir "transformers>=4.44.0" "tokenizers>=0.19" "numpy>=2.0.0" -q
 pip install --no-cache-dir -r requirements.txt -q
 
 # 4. Setup Repositories
