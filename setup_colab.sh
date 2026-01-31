@@ -11,7 +11,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.cargo/env
 
 # 2. Deep Clean Python Environment
-echo "🧹 Cleaning up existing packages to prevent conflicts..."
+echo "🧹 Cleaning up existing packages and legacy repos..."
+# Remove legacy Index-TTS2 folder if it exists
+rm -rf index-tts
 uv pip uninstall transformers tokenizers protobuf librosa numpy jax -y -q
 
 # 3. Install Core AI Stack (Golden Versions)
