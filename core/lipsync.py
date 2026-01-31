@@ -53,23 +53,48 @@ class LipSyncProcessor:
                 f.writelines(filtered)
 
     def _download_models(self):
-        """Downloads MuseTalk checkpoints if missing."""
+        """Downloads MuseTalk checkpoints using huggingface_hub for robustness."""
+        print("📥 Downloading MuseTalk models from HuggingFace (this may take a few minutes)...")
+        from huggingface_hub import snapshot_download
+        
+        try:
+            # MuseTalk official models
+            snapshot_download(
+                repo_id="TMElyralab/MuseTalk",
+                local_dir=self.repo_path,
+                local_dir_use_symlinks=False,
+                allow_patterns=["musetalk/*", "dwpose/*", "models/face-parse-bisent/*", "sd-vae-ft-mse/*", "whisper/*"]
+            )
+            print("✅ MuseTalk models downloaded successfully.")
+        except Exception as e:
+            print(f"⚠️ Error downloading models via huggingface_hub: {e}")
+            print("🔄 Attempting manual download fallback...")
+            # Fallback to manual download if hub fails (legacy logic)
+            self._manual_download_fallback()
+
+    def _manual_download_fallback(self):
         mapping = {
             "musetalk/musetalk.pth": Config.MUSETALK_CHECKPOINTS["musetalk"],
             "dwpose/dw-ll_ucoco_384.pth": Config.MUSETALK_CHECKPOINTS["dwpose"],
             "face-parse-bisent/79999_iter.pth": Config.MUSETALK_CHECKPOINTS["face_detection"],
-            "sd-vae-ft-mse/diffusion_pytorch_model.bin": Config.MUSETALK_CHECKPOINTS["sd_vae"],
+            "sd_vae/diffusion_pytorch_model.bin": Config.MUSETALK_CHECKPOINTS["sd_vae"],
             "whisper/tiny.pt": Config.MUSETALK_CHECKPOINTS["whisper"]
         }
-        
         for rel_path, url in mapping.items():
             dest = self.ckpt_dir / rel_path
-            if not dest.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if not dest.exists() or dest.stat().st_size < 1000: # Ensure it's not a tiny error file
                 print(f"📥 Downloading weights: {rel_path}")
                 self._download_file(url, dest)
 
     def _download_file(self, url, dest):
-        response = requests.get(url, stream=True)
+        # Adding a more robust download with redirects handled
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, stream=True, headers=headers, allow_redirects=True)
+        if response.status_code != 200:
+            print(f"❌ Failed to download {url}: Status {response.status_code}")
+            return
+            
         total_size = int(response.headers.get('content-length', 0))
         with open(dest, 'wb') as f, tqdm(total=total_size, unit='B', unit_scale=True, desc=dest.name) as pbar:
             for data in response.iter_content(chunk_size=1024 * 1024):
@@ -87,6 +112,7 @@ class LipSyncProcessor:
         print("👄 Starting MuseTalk LipSync - High Fidelity Mode...")
         
         env = os.environ.copy()
+        # Ensure we point to the MuseTalk directory for imports
         env["PYTHONPATH"] = f"{self.repo_path}:{env.get('PYTHONPATH', '')}"
 
         cmd = [
@@ -113,7 +139,13 @@ class LipSyncProcessor:
                 print(f"✅ MuseTalk complete: {output_path}")
                 return output_path
             else:
-                print(f"❌ MuseTalk failed (code {process.returncode}). Check logs.")
+                print(f"❌ MuseTalk failed with return code {process.returncode}")
+                if stderr:
+                    print(f"🔍 Error Output:\n{stderr.decode()}")
+                if stdout:
+                    print(f"📜 Standard Output:\n{stdout.decode()}")
+                
+                # Fallback to basic merge to ensure pipeline finishes
                 return self._merge_audio_only(video_path, audio_path, output_path)
         except Exception as e:
             print(f"❌ Error during MuseTalk execution: {e}")
