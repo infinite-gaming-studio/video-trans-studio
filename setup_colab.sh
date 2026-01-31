@@ -37,21 +37,9 @@ if [ -f "LivePortrait/requirements.txt" ]; then
     uv pip install --no-cache -r LivePortrait/requirements.txt -q
 fi
 
-# Index-TTS2
-if [ ! -d "index-tts" ]; then
-    echo "📥 Cloning Index-TTS2..."
-    git clone https://github.com/index-tts/index-tts.git
-fi
-
-echo "⚙️  Synchronizing Index-TTS2 environment via uv..."
-cd index-tts
-uv sync --all-extras --no-dev -q
-cd ..
-
-# 🚨 FINAL CALIBRATION: Fix known import issues via patching
-echo "🛠️  Applying stability patches to sub-repos..."
-# Use python to perform more complex patching if needed, or simple sed
-# (The hotpatch in core/tts.py handles most runtime issues, but we ensure physical file sanity here)
+# F5-TTS (Stable Voice Cloning)
+echo "🎙️  Installing F5-TTS for stable voice cloning..."
+uv pip install --no-cache f5-tts -q
 
 echo "✨ Environment calibration complete. Ready for high-fidelity dubbing!"
 mkdir -p checkpoints output temp

@@ -29,15 +29,8 @@ class Config:
         "landmark": "https://huggingface.co/KwaiVGI/LivePortrait/resolve/main/landmark.pth"
     }
 
-    # Index-TTS2 Configuration (Modern Voice Cloning)
-    INDEXTTS_REPO_URL = "https://github.com/index-tts/index-tts.git"
-    INDEXTTS_MODEL_DIR = CHECKPOINTS_DIR / "IndexTTS-2"
-    INDEXTTS_CONFIG_PATH = INDEXTTS_MODEL_DIR / "config.yaml"
-    INDEXTTS_MODELS = {
-        "config.yaml": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/config.yaml",
-        "model.safetensors": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/model.safetensors",
-        "vocab.json": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/vocab.json"
-    }
+    # F5-TTS Configuration (Stable Voice Cloning)
+    F5TTS_MODEL_DIR = CHECKPOINTS_DIR / "F5-TTS"
 
     @classmethod
     def print_info(cls):

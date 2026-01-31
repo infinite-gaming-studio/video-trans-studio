@@ -31,8 +31,5 @@ aiohttp
 python-dotenv
 ffmpeg-python
 gdown
-einops
-vector_quantize_pytorch
-omegaconf
-hydra-core
-vocos
+# F5-TTS (Stable Voice Cloning)
+f5-tts

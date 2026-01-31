@@ -16,12 +16,11 @@ def cleanup_vram():
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-async def run_pipeline(video_path, target_lang="en", emo_alpha=1.0):
+async def run_pipeline(video_path, target_lang="en"):
     """
     Orchestrates the full video translation pipeline.
     video_path: Path to source video
     target_lang: Language code for translation (default: en)
-    emo_alpha: Emotional intensity for Index-TTS2 (default: 1.0)
     """
     Config.print_info()
     
@@ -62,12 +61,12 @@ async def run_pipeline(video_path, target_lang="en", emo_alpha=1.0):
         translated_segments = translator.translate_segments(segments)
         SubtitleGenerator.save_srt(translated_segments, translated_srt_path)
         
-        # 4. TTS (Index-TTS2 Voice Cloning)
-        tracker.set_step(3, "TTS Generation (Index-TTS2 Cloning)")
+        # 4. TTS (F5-TTS Voice Cloning)
+        tracker.set_step(3, "TTS Generation (F5-TTS Cloning)")
         tts = TTSProcessor()
         dubbed_audio_path = str(project_output_dir / "dubbed_audio.wav")
-        # Pass the original audio path for speaker cloning and emotional control
-        await tts.generate_full_audio(translated_segments, audio_path, dubbed_audio_path, emo_alpha=emo_alpha)
+        # Pass the original audio path for speaker cloning
+        await tts.generate_full_audio(translated_segments, audio_path, dubbed_audio_path)
         tts.unload()
         cleanup_vram()
         
@@ -99,7 +98,6 @@ if __name__ == "__main__":
         
     video_input = sys.argv[1]
     lang_input = sys.argv[2] if len(sys.argv) > 2 else "en"
-    emo_input = float(sys.argv[3]) if len(sys.argv) > 3 else 1.0
     
     import asyncio
-    asyncio.run(run_pipeline(video_input, lang_input, emo_alpha=emo_input))
+    asyncio.run(run_pipeline(video_input, lang_input))

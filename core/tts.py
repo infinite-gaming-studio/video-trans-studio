@@ -55,77 +55,30 @@ class TTSProcessor:
                         pbar.update(len(chunk))
 
     def load_model(self):
-        """Loads Index-TTS2 into VRAM with a hotpatch for Transformers version compatibility."""
+        """Lazy load F5-TTS model."""
         if self.model is not None:
             return
 
-        print(f"⏳ Loading Index-TTS2 into VRAM (FP16 mode)...")
-        
-        # Hotpatch: Prevent ImportError for missing cache components in some transformers versions
+        print("⏳ Loading F5-TTS into VRAM...")
         try:
-            import transformers.cache_utils
-            # 1. OffloadedCache
-            if not hasattr(transformers.cache_utils, "OffloadedCache"):
-                class DummyOffloadedCache: pass
-                transformers.cache_utils.OffloadedCache = DummyOffloadedCache
-                print("🩹 Applied hotpatch for transformers.cache_utils.OffloadedCache")
-            
-            # 2. QuantizedCacheConfig & Its Implementations
-            # Index-TTS2 expects these in transformers.cache_utils
-            missing_attrs = []
-            for attr in ["QuantizedCacheConfig", "QuantoQuantizedCache", "HqqQuantizedCache"]:
-                if not hasattr(transformers.cache_utils, attr):
-                    class DummyAttr: pass
-                    setattr(transformers.cache_utils, attr, DummyAttr)
-                    missing_attrs.append(attr)
-            
-            # 3. ExtensionsTrie in tokenization_utils
-            # Often moved to tokenization_utils_base or renamed in newer versions
-            import transformers.tokenization_utils
-            if not hasattr(transformers.tokenization_utils, "ExtensionsTrie"):
-                try:
-                    from transformers.tokenization_utils_base import ExtensionsTrie
-                    transformers.tokenization_utils.ExtensionsTrie = ExtensionsTrie
-                    print("🩹 Aliased ExtensionsTrie from tokenization_utils_base")
-                except ImportError:
-                    class DummyTrie:
-                        def __init__(self, *args, **kwargs): pass
-                    transformers.tokenization_utils.ExtensionsTrie = DummyTrie
-                    missing_attrs.append("ExtensionsTrie")
-            
-            if missing_attrs:
-                print(f"🩹 Applied hotpatch for missing transformers components: {', '.join(missing_attrs)}")
+            from f5_tts.api import F5TTS
+            self.model = F5TTS(device=self.device)
+            print("✅ F5-TTS Model Loaded.")
         except Exception as e:
-            print(f"⚠️ Hotpatch application failed (non-critical): {e}")
-
-        try:
-            sys.path.insert(0, str(self.repo_path))
-            from indextts.infer_v2 import IndexTTS2
-                
-            self.model = IndexTTS2(
-                cfg_path=str(Config.INDEXTTS_CONFIG_PATH),
-                model_dir=str(self.model_dir),
-                use_fp16=True if self.device == "cuda" else False,
-                use_cuda_kernel=True if self.device == "cuda" else False,
-                device=self.device
-            )
-            print("✅ Index-TTS2 Model Loaded.")
-        except Exception as e:
-            print(f"❌ Failed to load Index-TTS2: {e}")
+            print(f"❌ Failed to load F5-TTS: {e}")
             raise
 
-    async def generate_full_audio(self, segments, original_audio_path, output_path, emo_alpha=1.0):
+    async def generate_full_audio(self, segments, original_audio_path, output_path, emo_alpha=None):
         """
-        Generates full dubbed audio with voice cloning for each segment.
+        Generates full dubbed audio with F5-TTS zero-shot voice cloning.
         - segments: List of translated segments (with start, end, text)
         - original_audio_path: Path to the original full audio wav
-        - emo_alpha: Emotional intensity (0.0 to 1.0)
         """
         self.load_model()
-        print(f"🗣️ Cloning voices and rendering {len(segments)} segments (Emotion: {emo_alpha})...")
+        print(f"🗣️ Cloning voices and rendering {len(segments)} segments via F5-TTS...")
 
         # Create temp dir for segments
-        temp_dir = Config.TEMP_DIR / "indextts_segments"
+        temp_dir = Config.TEMP_DIR / "f5tts_segments"
         temp_dir.mkdir(exist_ok=True)
         
         # Load full original audio for cropping reference samples
@@ -141,23 +94,26 @@ class TTSProcessor:
             # Extract original segment as voice prompt for cloning
             ref_path = temp_dir / f"ref_{i:04d}.wav"
             ref_seg = orig_audio[start_ms:end_ms]
-            # Extension: Index-TTS needs ~3-5s for best results
-            if len(ref_seg) < 3000:
-                pad_start = max(0, start_ms - 1000)
-                pad_end = min(len(orig_audio), end_ms + 1000)
+            
+            # F5-TTS works best with 5-10s reference. Let's pad if short.
+            if len(ref_seg) < 5000:
+                pad_start = max(0, start_ms - 2000)
+                pad_end = min(len(orig_audio), end_ms + 2000)
                 ref_seg = orig_audio[pad_start:pad_end]
+            
             ref_seg.export(str(ref_path), format="wav")
 
             # Output path for synthesized segment
             seg_out_path = temp_dir / f"syn_{i:04d}.wav"
             
-            print(f"🎙️ Rendering Segment {i} (Cloning Original Voice)...")
+            print(f"🎙️ Rendering Segment {i} (F5-TTS Cloning)...")
+            
+            # F5-TTS Inference
             self.model.infer(
-                spk_audio_prompt=str(ref_path),
-                text=text,
-                output_path=str(seg_out_path),
-                emo_alpha=emo_alpha,
-                use_emo_text=True
+                ref_file=str(ref_path),
+                ref_text="", # F5-TTS uses ASR on reference if text is empty, more robust
+                gen_text=text,
+                output_file=str(seg_out_path)
             )
             
             # Load and Merge with Sync Protection
