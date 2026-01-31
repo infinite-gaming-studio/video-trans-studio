@@ -37,6 +37,12 @@ fi
 touch Wav2Lip/__init__.py
 find Wav2Lip -name "*.py" -exec sed -i 's/from collections import Iterable/from collections.abc import Iterable/g' {} +
 
+# Fix for librosa.output.write_wav deprecation (use soundfile instead)
+# This is critical because librosa >= 0.8.0 removed output module
+find Wav2Lip -name "audio.py" -exec sed -i 's/import librosa/import librosa\nimport soundfile as sf/g' {} +
+find Wav2Lip -name "audio.py" -exec sed -i 's/librosa.output.write_wav/sf.write/g' {} +
+
+
 # 5. Create directory structure
 mkdir -p checkpoints output temp
 
