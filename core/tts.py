@@ -55,14 +55,25 @@ class TTSProcessor:
                         pbar.update(len(chunk))
 
     def load_model(self):
-        """Loads Index-TTS2 into VRAM."""
-        if self.model is None:
-            self.setup()
-            print("⏳ Loading Index-TTS2 into VRAM (FP16 mode)...")
-            try:
-                # Add repo to sys.path to allow internal imports
-                sys.path.append(str(self.repo_path))
-                from indextts.infer_v2 import IndexTTS2
+        """Loads Index-TTS2 into VRAM with a hotpatch for Transformers version compatibility."""
+        if self.model is not None:
+            return
+
+        print(f"⏳ Loading Index-TTS2 into VRAM (FP16 mode)...")
+        
+        # Hotpatch: Prevent ImportError for 'OffloadedCache' in some transformers versions
+        try:
+            import transformers.cache_utils
+            if not hasattr(transformers.cache_utils, "OffloadedCache"):
+                class DummyOffloadedCache: pass
+                transformers.cache_utils.OffloadedCache = DummyOffloadedCache
+                print("🩹 Applied hotpatch for transformers.cache_utils.OffloadedCache")
+        except:
+            pass
+
+        try:
+            sys.path.insert(0, str(self.repo_path))
+            from indextts.infer_v2 import IndexTTS2
                 
                 self.model = IndexTTS2(
                     cfg_path=str(Config.INDEXTTS_CONFIG_PATH),

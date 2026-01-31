@@ -42,8 +42,8 @@ if [ -f "LivePortrait/requirements.txt" ]; then
 fi
 
 # 🚨 FINAL CALIBRATION: Ensure core versions are NOT downgraded by dependencies
-echo "🛠️ Finalizing environment calibration..."
-pip install --no-cache-dir "transformers>=4.46.0" "numpy>=2.0.0,<2.1.0" "accelerate>=0.33.0" -q
+echo "🛠️ Finalizing environment calibration (Force Reinstall)..."
+pip install --no-cache-dir --force-reinstall "transformers>=4.46.0" "numpy>=2.0.0,<2.1.0" "accelerate>=0.33.0" -q
 
 # 5. Create directory structure
 mkdir -p checkpoints output temp
