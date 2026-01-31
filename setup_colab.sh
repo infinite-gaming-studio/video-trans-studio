@@ -30,7 +30,16 @@ fi
 # 4.5 Install LivePortrait & Index-TTS2 Specific Dependencies
 echo "📦 Installing LivePortrait and Index-TTS2 dependencies..."
 pip install --no-cache-dir onnxruntime-gpu -q
-pip install --no-cache-dir -r LivePortrait/requirements.txt -q
+
+# 🚨 CRITICAL: Prevent LivePortrait from downgrading our core AI stack
+if [ -f "LivePortrait/requirements.txt" ]; then
+    echo "🧹 Stripping version constraints from LivePortrait/requirements.txt..."
+    sed -i '/transformers/d' LivePortrait/requirements.txt
+    sed -i '/numpy/d' LivePortrait/requirements.txt
+    sed -i '/accelerate/d' LivePortrait/requirements.txt
+    sed -i '/opencv-python/d' LivePortrait/requirements.txt
+    pip install --no-cache-dir -r LivePortrait/requirements.txt -q
+fi
 
 # 5. Create directory structure
 mkdir -p checkpoints output temp
