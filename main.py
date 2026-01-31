@@ -22,35 +22,44 @@ def run_pipeline(video_path, target_lang="zh-cn"):
         print(f"❌ Video not found: {video_path}")
         return
 
-    # 1. Extract Audio
+    print("\n" + "="*50)
+    print("🚀 STEP 1: Extracting Audio from Video...")
     audio_path = AudioProcessor.extract_audio(video_path)
+    print(f"✅ Audio extracted: {audio_path}")
     
-    # 2. ASR (Whisper)
+    print("\n" + "="*50)
+    print("🚀 STEP 2: Automatic Speech Recognition (ASR)...")
     asr = ASRProcessor()
     segments = asr.transcribe(audio_path)
     asr.unload() 
     cleanup_vram()
+    print(f"✅ Transcription complete. {len(segments)} segments detected.")
     
-    # 3. Translate
+    print("\n" + "="*50)
+    print(f"🚀 STEP 3: Translating segments to {target_lang}...")
     translator = Translator(target_lang=target_lang)
     translated_segments = translator.translate_segments(segments)
+    print(f"✅ Translation complete.")
     
-    # 4. TTS (Edge-TTS)
-    # Note: Edge-TTS uses asyncio, which we handle inside TTSProcessor
+    print("\n" + "="*50)
+    print("🚀 STEP 4: Text-to-Speech (TTS) Generation...")
     tts = TTSProcessor()
     dubbed_audio_path = str(Config.TEMP_DIR / "dubbed_audio.wav")
     tts.generate_full_audio(translated_segments, dubbed_audio_path)
+    print(f"✅ Dubbed audio generated: {dubbed_audio_path}")
     
-    # 5. LipSync (Wav2Lip)
-    # This is where we need the most VRAM
+    print("\n" + "="*50)
+    print("🚀 STEP 5: Lip-Syncing (Wav2Lip)...")
     lipsync = LipSyncProcessor()
     final_output_name = f"final_{os.path.splitext(os.path.basename(video_path))[0]}.mp4"
     final_video_path = str(Config.OUTPUT_DIR / final_output_name)
     
     lipsync.sync(video_path, dubbed_audio_path, final_video_path)
     
-    print(f"\n🎉 Process Finished!")
-    print(f"📦 Final Output: {final_video_path}")
+    print("\n" + "="*50)
+    print(f"🎉 Pipeline Finished Successfully!")
+    print(f"📦 Final Result saved at: {final_video_path}")
+    print("="*50)
 
 if __name__ == "__main__":
     # Example usage: python main.py input_video.mp4 zh-cn
