@@ -105,21 +105,24 @@ class TTSProcessor:
             self.model = IndexTTS2(
                 cfg_path=str(Config.INDEXTTS_CONFIG_PATH),
                 model_dir=str(self.model_dir),
-                use_fp16=True if self.device == "cuda" else False
+                use_fp16=True if self.device == "cuda" else False,
+                use_cuda_kernel=True if self.device == "cuda" else False,
+                device=self.device
             )
             print("✅ Index-TTS2 Model Loaded.")
         except Exception as e:
             print(f"❌ Failed to load Index-TTS2: {e}")
             raise
 
-    async def generate_full_audio(self, segments, original_audio_path, output_path):
+    async def generate_full_audio(self, segments, original_audio_path, output_path, emo_alpha=1.0):
         """
         Generates full dubbed audio with voice cloning for each segment.
         - segments: List of translated segments (with start, end, text)
         - original_audio_path: Path to the original full audio wav
+        - emo_alpha: Emotional intensity (0.0 to 1.0)
         """
         self.load_model()
-        print(f"🗣️ Cloning voices and rendering {len(segments)} segments...")
+        print(f"🗣️ Cloning voices and rendering {len(segments)} segments (Emotion: {emo_alpha})...")
 
         # Create temp dir for segments
         temp_dir = Config.TEMP_DIR / "indextts_segments"
@@ -136,12 +139,10 @@ class TTSProcessor:
             text = seg['text']
             
             # Extract original segment as voice prompt for cloning
-            # We take the original segment audio as the reference speaker prompt
             ref_path = temp_dir / f"ref_{i:04d}.wav"
             ref_seg = orig_audio[start_ms:end_ms]
-            # If segment is too short, extend it for better cloning (Index-TTS needs ~3-5s for best results)
+            # Extension: Index-TTS needs ~3-5s for best results
             if len(ref_seg) < 3000:
-                # Try to take a bit more around it
                 pad_start = max(0, start_ms - 1000)
                 pad_end = min(len(orig_audio), end_ms + 1000)
                 ref_seg = orig_audio[pad_start:pad_end]
@@ -151,12 +152,12 @@ class TTSProcessor:
             seg_out_path = temp_dir / f"syn_{i:04d}.wav"
             
             print(f"🎙️ Rendering Segment {i} (Cloning Original Voice)...")
-            # Index-TTS2 inference is synchronous, so we run in executor if needed
-            # but usually okay to run sequential for high quality
             self.model.infer(
                 spk_audio_prompt=str(ref_path),
                 text=text,
-                output_path=str(seg_out_path)
+                output_path=str(seg_out_path),
+                emo_alpha=emo_alpha,
+                use_emo_text=True
             )
             
             # Load and Merge with Sync Protection

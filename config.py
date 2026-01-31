@@ -31,7 +31,7 @@ class Config:
 
     # Index-TTS2 Configuration (Modern Voice Cloning)
     INDEXTTS_REPO_URL = "https://github.com/index-tts/index-tts.git"
-    INDEXTTS_MODEL_DIR = CHECKPOINTS_DIR / "indextts"
+    INDEXTTS_MODEL_DIR = CHECKPOINTS_DIR / "IndexTTS-2"
     INDEXTTS_CONFIG_PATH = INDEXTTS_MODEL_DIR / "config.yaml"
     INDEXTTS_MODELS = {
         "config.yaml": "https://huggingface.co/IndexTeam/IndexTTS-2/resolve/main/config.yaml",
