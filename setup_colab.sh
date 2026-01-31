@@ -12,7 +12,7 @@ pip uninstall -y transformers tokenizers protobuf librosa numpy jax -q
 # 3. Install Modern Python Infrastructure
 echo "🐍 Installing modern AI libraries (Force Upgrade)..."
 pip install --no-cache-dir torch torchaudio torchvision -q
-pip install --no-cache-dir "transformers>=4.46.0" "tokenizers>=0.20" "numpy>=2.0.0,<2.1.0" -q
+pip install --no-cache-dir "transformers>=4.48.0" "tokenizers>=0.20" "numpy>=2.0.0,<2.1.0" -q
 pip install --no-cache-dir -r requirements.txt -q
 
 # 4. Setup Repositories
@@ -43,7 +43,7 @@ fi
 
 # 🚨 FINAL CALIBRATION: Ensure core versions are NOT downgraded by dependencies
 echo "🛠️ Finalizing environment calibration (Force Reinstall)..."
-pip install --no-cache-dir --force-reinstall "transformers>=4.46.0" "numpy>=2.0.0,<2.1.0" "accelerate>=0.33.0" -q
+pip install --no-cache-dir --force-reinstall "transformers>=4.48.0" "numpy>=2.0.0,<2.1.0" "accelerate>=0.33.0" -q
 
 # 5. Create directory structure
 mkdir -p checkpoints output temp

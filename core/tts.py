@@ -61,15 +61,28 @@ class TTSProcessor:
 
         print(f"⏳ Loading Index-TTS2 into VRAM (FP16 mode)...")
         
-        # Hotpatch: Prevent ImportError for 'OffloadedCache' in some transformers versions
+        # Hotpatch: Prevent ImportError for missing cache components in some transformers versions
         try:
             import transformers.cache_utils
+            # 1. OffloadedCache
             if not hasattr(transformers.cache_utils, "OffloadedCache"):
                 class DummyOffloadedCache: pass
                 transformers.cache_utils.OffloadedCache = DummyOffloadedCache
                 print("🩹 Applied hotpatch for transformers.cache_utils.OffloadedCache")
-        except:
-            pass
+            
+            # 2. QuantizedCacheConfig & Its Implementations
+            # Index-TTS2 expects these in transformers.cache_utils
+            missing_attrs = []
+            for attr in ["QuantizedCacheConfig", "QuantoQuantizedCache", "HqqQuantizedCache"]:
+                if not hasattr(transformers.cache_utils, attr):
+                    class DummyAttr: pass
+                    setattr(transformers.cache_utils, attr, DummyAttr)
+                    missing_attrs.append(attr)
+            
+            if missing_attrs:
+                print(f"🩹 Applied hotpatch for missing transformers.cache_utils: {', '.join(missing_attrs)}")
+        except Exception as e:
+            print(f"⚠️ Hotpatch application failed (non-critical): {e}")
 
         try:
             sys.path.insert(0, str(self.repo_path))
