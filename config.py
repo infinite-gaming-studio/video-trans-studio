@@ -22,14 +22,11 @@ class Config:
     WHISPER_MODEL_SIZE = "large-v3"
     WHISPER_COMPUTE_TYPE = "float16" if DEVICE == "cuda" else "int8"
     
-    # MuseTalk Configuration (State-of-the-Art)
-    MUSETALK_REPO_URL = "https://github.com/TMElyralab/MuseTalk.git"
-    MUSETALK_CHECKPOINTS = {
-        "musetalk": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/musetalk/musetalk.pth",
-        "dwpose": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/dwpose/dw-ll_ucoco_384.pth",
-        "face_detection": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/models/face-parse-bisent/79999_iter.pth",
-        "sd_vae": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/sd-vae-ft-mse/diffusion_pytorch_model.bin",
-        "whisper": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/whisper/tiny.pt"
+    # LivePortrait Configuration (Next-Gen Face Reenactment)
+    LIVEPORTRAIT_REPO_URL = "https://github.com/KwaiVGI/LivePortrait.git"
+    LIVEPORTRAIT_CHECKPOINTS = {
+        "base": "https://huggingface.co/KwaiVGI/LivePortrait/resolve/main/base_models",
+        "landmark": "https://huggingface.co/KwaiVGI/LivePortrait/resolve/main/landmark.pth"
     }
 
     # Index-TTS2 Configuration (Modern Voice Cloning)
