@@ -51,17 +51,25 @@ class LipSyncProcessor:
         try:
             # 使用 asyncio 执行子进程，使其非阻塞
             import asyncio
+            print(f"🐛 Debug executing command: {' '.join(cmd)}")
+            
             process = await asyncio.create_subprocess_exec(
                 *cmd,
-                cwd=str(Config.BASE_DIR)
+                cwd=str(Config.BASE_DIR),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
-            await process.wait()
+            
+            # 等待完成并获取输出
+            stdout, stderr = await process.communicate()
             
             if process.returncode == 0:
                 print(f"✅ LipSync complete: {output_path}")
                 return output_path
             else:
                 print(f"❌ LipSync failed with return code {process.returncode}")
+                print(f"🔍 Error Output:\n{stderr.decode()}")
+                print(f"📜 Standard Output:\n{stdout.decode()}")
                 return None
         except Exception as e:
             print(f"❌ LipSync failed: {e}")
