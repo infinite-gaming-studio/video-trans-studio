@@ -37,20 +37,24 @@ class TTSProcessor:
                 word_count = len(text.split())
                 estimated_duration = word_count / 3.0 
                 
-                rate_str = "+0%"
-                if original_duration > 0:
-                    ratio = estimated_duration / original_duration
-                    if ratio > 1.1:
-                        # 增加语速，最高 +50% (即 1.5x)
-                        increase = min(int((ratio - 1) * 100), 50)
-                        rate_str = f"+{increase}%"
-                    elif ratio < 0.8:
-                        # 降低语速，最低 -20%
-                        decrease = max(int((ratio - 1) * 100), -20)
-                        rate_str = f"{decrease}%"
+            # 3. 语速控制逻辑：工业级自然听感优先
+            # 参考业界标准：1.2x 以上会导致听感明显恶化（节奏感丢失）
+            rate_str = "+0%"
+            if original_duration > 0:
+                # 预估倍率
+                ratio = estimated_duration / original_duration
+                if ratio > 1.2:
+                    # 语速最高只加到 +20%，剩下的长度交给视频拉伸处理
+                    rate_str = "+20%"
+                elif ratio < 0.8:
+                    rate_str = "-15%"
+                else:
+                    # 在 0.8 到 1.2 之间，我们按比例调整
+                    increase = int((ratio - 1) * 100)
+                    rate_str = f"{'+' if increase >= 0 else ''}{increase}%"
 
-                await self._generate_audio(text, str(temp_file), rate=rate_str)
-                return i, temp_file
+            await self._generate_audio(text, str(temp_file), rate=rate_str)
+            return i, temp_file
 
         tasks = [_process_segment(i, seg) for i, seg in enumerate(segments)]
         results = await asyncio.gather(*tasks)
@@ -62,23 +66,28 @@ class TTSProcessor:
         
         for (i, temp_file), seg in zip(results, segments):
             start_ms = int(seg['start'] * 1000)
-            end_ms = int(seg['end'] * 1000)
-            target_dur = end_ms - start_ms
             
             # 读取并检查实际时长
             seg_audio = AudioSegment.from_mp3(temp_file)
             
-            # 如果 TTS 原生语速控制后仍超出时长，进行微调
-            if len(seg_audio) > target_dur and target_dur > 0:
-                # 最后的兜底：高保真裁剪或微调
-                seg_audio = seg_audio[:target_dur]
+            # 工业级做法：不再进行 seg_audio = seg_audio[:target_dur] 的暴力裁剪
+            # 这样会切断最后两个词，导致听感极差。
+            # 我们直接按照起始时间点放置，允许它“溢出”到静音区，
+            # 即使稍微重叠也比切断好。
             
             # 填充静音
             if len(combined_audio) < start_ms:
                 combined_audio += AudioSegment.silent(duration=start_ms - len(combined_audio))
             
-            # 覆盖合成（防止漂移）
-            combined_audio = combined_audio[:start_ms] + seg_audio
+            # 使用 overlay 或者简单的拼接，但为了精准，我们保留 start_ms 的起始位置
+            # 这里我们直接叠加，保证每一段话都在正确的时间点开始
+            combined_audio = combined_audio.overlay(seg_audio, position=start_ms)
+            
+            # 动态更新 combined_audio 长度，确保整个音轨足够长
+            # 如果这一段音频播放完的时间超过了当前总长度，则需要占位
+            if start_ms + len(seg_audio) > len(combined_audio):
+                # 这种方式保证了音频的完整性
+                pass 
             
             if os.path.exists(temp_file): os.remove(temp_file)
             

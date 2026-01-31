@@ -115,6 +115,9 @@ class LipSyncProcessor:
         # Ensure we point to the MuseTalk directory for imports
         env["PYTHONPATH"] = f"{self.repo_path}:{env.get('PYTHONPATH', '')}"
 
+        # MuseTalk inference command
+        # 工业级逻辑：MuseTalk 会自动根据音频长度生成视频，
+        # 但我们需要确保如果音频变长了，它能处理好。
         cmd = [
             "python", str(self.repo_path / "scripts/inference.py"),
             "--inference_config", str(self.repo_path / "configs/inference/test_config.yaml"),

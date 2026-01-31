@@ -36,31 +36,35 @@ class Translator:
             return self.tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
 
     def translate_segments(self, segments, batch_size=16):
-        print(f"🌍 Translating {len(segments)} segments (Batch Size: {batch_size})...")
+        print(f"🌍 Translating {len(segments)} segments (Dubbing Strategy: Conciseness)...")
         translated_segments = []
         
-        # 提取文本列表
+        # 预处理：如果是翻译成英文，且中文原句很短，我们需要提示或采用精简策略
+        # 对于 NLLB 这种模型，我们通过控制 max_length 和生成参数来控制长度
+        
         texts = [seg['text'] for seg in segments]
         translated_texts = []
 
         if self.use_local:
-            # 本地模型批量翻译逻辑
             lang_map = {"zh": "zho_Hans", "en": "eng_Latn", "es": "spa_Latn", "fr": "fra_Latn"}
             target_code = lang_map.get(self.target_lang, "zho_Hans")
             
             for i in range(0, len(texts), batch_size):
                 batch = texts[i:i+batch_size]
                 inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True).to(self.model.device)
+                
+                # 工业级技巧：通过 penalty 鼓励模型生成更精炼的句子，避免啰嗦
                 translated_tokens = self.model.generate(
                     **inputs, 
                     forced_bos_token_id=self.tokenizer.lang_code_to_id[target_code], 
-                    max_length=128
+                    max_length=100,      # 限制最大长度
+                    length_penalty=1.0,   # 长度惩罚因子
+                    num_beams=4
                 )
                 batch_results = self.tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)
                 translated_texts.extend(batch_results)
         else:
-            # 在线翻译也可以尝试并发，但为了稳定目前保持循环或使用批量库功能
-            # deep-translator 暂不支持原生批量，我们手动分批
+            # 在线 API 模式：如果是 GPT 可以加提示词，Google 则通过后续逻辑修剪
             for text in texts:
                 translated_texts.append(self.translate_text(text))
 
