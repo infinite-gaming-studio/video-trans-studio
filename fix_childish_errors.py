@@ -1,4 +1,5 @@
 import json
+import os
 
 notebook_path = 'Video_Trans_Studio.ipynb'
 
@@ -9,6 +10,7 @@ setup_code = """# @title 🚀 1. 环境初始化
 import os
 import sys
 import numpy as np
+from importlib.metadata import version as get_version
 from packaging import version
 
 # 1. 路径智能归位
@@ -23,43 +25,46 @@ if not os.path.exists('core') and not os.path.exists('video-trans-studio'):
     get_ipython().system('git clone https://github.com/infinite-gaming-studio/video-trans-studio.git')
     os.chdir('/content/video-trans-studio')
 
-# 3. 增强版环境检测逻辑
+# 3. 增强版环境检测逻辑 (使用 metadata 避免内存缓存干扰)
 def check_environment():
     try:
-        # 如果能成功导入核心组件，说明环境基本可用
-        import transformers, accelerate, onnxruntime
-        import torch
+        # 检测磁盘上安装的版本，而不是内存中的版本
+        t_ver = get_version("transformers")
         
-        # 验证核心目录是否完整
         needed_dirs = ['LivePortrait', 'index-tts', 'checkpoints']
         is_dirs_ready = all(os.path.exists(d) for d in needed_dirs)
         
         if not is_dirs_ready:
             return False, "缺少核心模型目录 (LivePortrait/Index-TTS)"
             
-        # 验证关键版本
-        v_trans = version.parse(transformers.__version__)
-        if v_trans < version.parse("4.41.0"):
-            return False, f"Transformers 版本过低: {v_trans}"
+        if version.parse(t_ver) < version.parse("4.41.0"):
+            return False, f"Transformers 磁盘版本过低: {t_ver}"
             
+        # 额外检查：如果内存已经加载了旧版本，提醒重启
+        if 'transformers' in sys.modules:
+            import transformers
+            if version.parse(transformers.__version__) < version.parse("4.41.0"):
+                return True, "安装已完成，但检测到旧版本缓存，请务必【重新启动会话】"
+
         return True, "环境就绪"
-    except ImportError as e:
-        return False, f"缺少关键组件: {e}"
     except Exception as e:
-        return False, f"检测出错: {e}"
+        return False, f"检测异常: {e}"
 
 is_ok, reason = check_environment()
 
 if not is_ok:
     print(f"⚠️ 环境需要初始化: {reason}")
-    print("🔄 正在同步代码并构建基础环境...")
+    print("🔄 正在同步代码并构建基础环境 (预计 3-5 分钟)...")
     get_ipython().system('git fetch --all && git reset --hard origin/main')
     get_ipython().system('bash setup_colab.sh')
     print("\n" + "!"*50)
-    print("✅ 基础环境构建完成！")
-    print("⚠️ 请点击上方菜单栏：'运行时' -> '重新启动会话' (Runtime -> Restart Session)")
-    print("⚠️ 重启后，再次运行此单元格即可。")
+    print("✅ 基础环境安装成功！")
+    print("⚠️ 关键一步：请点击上方菜单栏 [运行时] -> [重新启动会话] (Runtime -> Restart Session)")
+    print("⚠️ 重启后，再次运行此单元格即可看到【环境就绪】。")
     print("!"*50)
+elif "重新启动会话" in reason:
+    print(f"⚠️ {reason}")
+    print("请点击上方工具栏的 [运行时] -> [重新启动会话] ！！")
 else:
     print(f"✅ {reason}！")
     import transformers
@@ -76,4 +81,4 @@ for cell in nb['cells']:
 
 with open(notebook_path, 'w', encoding='utf-8') as f:
     json.dump(nb, f, ensure_ascii=False, indent=2)
-print("Successfully optimized setup logic with smart path detection.")
+print("Successfully fixed notebook setup cell.")
