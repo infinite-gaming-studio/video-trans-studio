@@ -16,26 +16,50 @@ class TTSProcessor:
         await communicate.save(output_file)
 
     async def generate_full_audio(self, segments, output_path):
-        print(f"🗣️ Generating TTS audio via Edge-TTS...")
+        print(f"🗣️ Generating TTS audio for {len(segments)} segments via Edge-TTS...")
+        
+        # 使用信号量限制并发，避免触发 API 限制或过载
+        semaphore = asyncio.Semaphore(10)
+        temp_dir = Config.TEMP_DIR / "tts_segments"
+        temp_dir.mkdir(exist_ok=True)
+
+        async def _process_segment(i, text):
+            async with semaphore:
+                temp_file = temp_dir / f"seg_{i:04d}.mp3"
+                await self._generate_audio(text, str(temp_file))
+                return i, temp_file
+
+        # 并行执行所有 TTS 请求
+        tasks = [
+            _process_segment(i, seg['text']) 
+            for i, seg in enumerate(segments)
+        ]
+        
+        print(f"⏳ Downloading segments in parallel...")
+        results = await asyncio.gather(*tasks)
+        # 按索引排序确保顺序正确
+        results.sort(key=lambda x: x[0])
+
+        print(f"🧩 Combining audio segments with proper timing...")
         combined_audio = AudioSegment.empty()
         current_time_ms = 0
-        temp_segment_file = Config.TEMP_DIR / "temp_seg.mp3"
         
-        for seg in segments:
+        for (i, temp_file), seg in zip(results, segments):
             start_ms = int(seg['start'] * 1000)
             silence_duration = start_ms - current_time_ms
+            
             if silence_duration > 0:
                 combined_audio += AudioSegment.silent(duration=silence_duration)
                 current_time_ms += silence_duration
             
-            # 直接 await，不再使用 asyncio.run()
-            await self._generate_audio(seg['text'], str(temp_segment_file))
-            seg_audio = AudioSegment.from_mp3(temp_segment_file)
+            seg_audio = AudioSegment.from_mp3(temp_file)
             combined_audio += seg_audio
             current_time_ms += len(seg_audio)
             
+            # 立即删除小的临时文件
+            if os.path.exists(temp_file): os.remove(temp_file)
+            
         combined_audio.export(output_path, format="wav")
-        if os.path.exists(temp_segment_file): os.remove(temp_segment_file)
         print(f"✅ Audio generated: {output_path}")
         return output_path
 

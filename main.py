@@ -60,7 +60,7 @@ async def run_pipeline(video_path, target_lang="zh-cn"):
         tracker.set_step(4, "Wav2Lip Syncing")
         lipsync = LipSyncProcessor()
         final_video_path = str(project_output_dir / f"final_{video_name}_{target_lang}.mp4")
-        lipsync.sync(video_path, dubbed_audio_path, final_video_path)
+        await lipsync.sync(video_path, dubbed_audio_path, final_video_path)
         
         tracker.set_step(5, "Complete")
         print(f"\n\n🎉 Pipeline Finished Successfully!")

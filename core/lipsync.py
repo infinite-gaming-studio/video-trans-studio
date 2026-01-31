@@ -33,15 +33,11 @@ class LipSyncProcessor:
                 f.write(data)
                 pbar.update(len(data))
 
-    def sync(self, video_path, audio_path, output_path):
+    async def sync(self, video_path, audio_path, output_path):
         """Executes the lip-sync process using Wav2Lip."""
         self.setup()
         
         print("👄 Starting LipSync (Wav2Lip) - This might take a while on T4...")
-        
-        # Important: Wav2Lip script expects to be run from its own directory 
-        # because of relative imports in its codebase.
-        # However, we can also try to call it directly.
         
         cmd = [
             "python", "Wav2Lip/inference.py",
@@ -53,10 +49,20 @@ class LipSyncProcessor:
         ]
         
         try:
-            # We use cwd=Config.BASE_DIR to ensure paths match
-            subprocess.run(cmd, check=True, cwd=str(Config.BASE_DIR))
-            print(f"✅ LipSync complete: {output_path}")
-            return output_path
-        except subprocess.CalledProcessError as e:
+            # 使用 asyncio 执行子进程，使其非阻塞
+            import asyncio
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(Config.BASE_DIR)
+            )
+            await process.wait()
+            
+            if process.returncode == 0:
+                print(f"✅ LipSync complete: {output_path}")
+                return output_path
+            else:
+                print(f"❌ LipSync failed with return code {process.returncode}")
+                return None
+        except Exception as e:
             print(f"❌ LipSync failed: {e}")
             return None
