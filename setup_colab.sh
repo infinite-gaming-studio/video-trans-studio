@@ -20,7 +20,7 @@ pip install --no-cache-dir accelerate sentencepiece -q
 pip install --no-cache-dir -r requirements.txt -q
 
 # C. Specific version fixes
-pip install --no-cache-dir librosa==0.8.0 -q
+pip install --no-cache-dir librosa==0.8.0 "numpy<2.0.0" -q
 
 # 4. Setup Wav2Lip and Index-TTS2
 if [ ! -d "Wav2Lip" ]; then
