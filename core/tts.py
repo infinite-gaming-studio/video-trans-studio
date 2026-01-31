@@ -18,16 +18,6 @@ if not hasattr(np, "int"): np.int = int
 if not hasattr(np, "bool"): np.bool = bool
 if not hasattr(np, "object"): np.object = object
 
-# Monkey patch for transformers compatibility (Index-TTS2 sensitivity)
-try:
-    import transformers.cache_utils
-    if not hasattr(transformers.cache_utils, "EncoderDecoderCache"):
-        transformers.cache_utils.EncoderDecoderCache = object
-    if not hasattr(transformers.cache_utils, "OffloadedCache"):
-        transformers.cache_utils.OffloadedCache = object
-except ImportError:
-    pass
-
 class TTSProcessor:
     """
     Industrial-grade TTS Processor using Index-TTS2 for Zero-shot Voice Cloning.

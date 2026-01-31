@@ -7,12 +7,12 @@ apt-get update -qq && apt-get install -y ffmpeg -qq
 
 # 2. Deep Clean Python Environment
 echo "🧹 Cleaning up existing packages to prevent conflicts..."
-pip uninstall -y transformers tokenizers protobuf librosa numpy -q
+pip uninstall -y transformers tokenizers protobuf librosa numpy jax -q
 
 # 3. Install Modern Python Infrastructure
-echo "🐍 Installing modern AI libraries..."
+echo "🐍 Installing modern AI libraries (Force Upgrade)..."
 pip install --no-cache-dir torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu118 -q
-pip install --no-cache-dir "transformers>=4.44.0" "tokenizers>=0.19" "numpy>=2.0.0" -q
+pip install --no-cache-dir "transformers>=4.46.0" "tokenizers>=0.20" "numpy>=2.0.0" -q
 pip install --no-cache-dir -r requirements.txt -q
 
 # 4. Setup Repositories
