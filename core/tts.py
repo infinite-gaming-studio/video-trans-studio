@@ -16,83 +16,155 @@ class TTSProcessor:
         communicate = edge_tts.Communicate(text, self.voice, rate=rate)
         await communicate.save(output_file)
 
-    async def generate_full_audio(self, segments, output_path):
-        print(f"🗣️ Generating synchronized TTS audio for {len(segments)} segments...")
-        
-        semaphore = asyncio.Semaphore(10)
-        temp_dir = Config.TEMP_DIR / "tts_segments"
-        temp_dir.mkdir(exist_ok=True)
+        async def generate_full_audio(self, segments, output_path):
 
-        async def _process_segment(i, seg):
-            async with semaphore:
-                temp_file = temp_dir / f"seg_{i:04d}.mp3"
+            print(f"🗣️ Generating synchronized TTS audio for {len(segments)} segments...")
+
+            
+
+            semaphore = asyncio.Semaphore(10)
+
+            temp_dir = Config.TEMP_DIR / "tts_segments"
+
+            temp_dir.mkdir(exist_ok=True)
+
+    
+
+            async def _process_segment(i, seg):
+
+                async with semaphore:
+
+                    temp_file = temp_dir / f"seg_{i:04d}.mp3"
+
+                    
+
+                    # --- 核心优化：语速预估逻辑 ---
+
+                    original_duration = seg['end'] - seg['start']
+
+                    text = seg['text']
+
+                    word_count = len(text.split())
+
+                    estimated_duration = word_count / 3.0 
+
+                    
+
+                    rate_str = "+0%"
+
+                    if original_duration > 0:
+
+                        ratio = estimated_duration / original_duration
+
+                        if ratio > 1.2:
+
+                            rate_str = "+20%"
+
+                        elif ratio < 0.8:
+
+                            rate_str = "-15%"
+
+                        else:
+
+                            increase = int((ratio - 1) * 100)
+
+                            rate_str = f"{'+' if increase >= 0 else ''}{increase}%"
+
+    
+
+                    await self._generate_audio(text, str(temp_file), rate=rate_str)
+
+                    return i, temp_file
+
+    
+
+            tasks = [_process_segment(i, seg) for i, seg in enumerate(segments)]
+
+            results = await asyncio.gather(*tasks)
+
+            results.sort(key=lambda x: x[0])
+
+    
+
+            print(f"🧩 Merging audio with professional timeline alignment...")
+
+            # 初始创建一个 1 毫秒的静音作为基底
+
+            combined_audio = AudioSegment.silent(duration=1)
+
+            
+
+            for (i, temp_file), seg in zip(results, segments):
+
+                start_ms = int(seg['start'] * 1000)
+
                 
-                # --- 核心优化：语速预估逻辑 ---
-                # 参考 pyVideoTrans: 预先估算语速倍率
-                # 假设英文平均语速为 150 词/分钟，或者根据字符长度预估
-                original_duration = seg['end'] - seg['start']
-                text = seg['text']
+
+                if not os.path.exists(temp_file) or os.stat(temp_file).st_size == 0:
+
+                    print(f"⚠️ Warning: Segment {i} audio is missing or empty.")
+
+                    continue
+
+    
+
+                # 读取生成的片段
+
+                seg_audio = AudioSegment.from_file(temp_file, format="mp3")
+
                 
-                # 预估 1x 语速下的时长（经验公式：英文约 3 个词/秒）
-                word_count = len(text.split())
-                estimated_duration = word_count / 3.0 
+
+                # 关键修复：先扩充基底长度，再进行叠加
+
+                # pydub 的 overlay 如果位置超出当前长度会失效，所以我们先用静音补齐
+
+                if len(combined_audio) < start_ms:
+
+                    silence_gap = start_ms - len(combined_audio)
+
+                    combined_audio += AudioSegment.silent(duration=silence_gap)
+
                 
-            # 3. 语速控制逻辑：工业级自然听感优先
-            # 参考业界标准：1.2x 以上会导致听感明显恶化（节奏感丢失）
-            rate_str = "+0%"
-            if original_duration > 0:
-                # 预估倍率
-                ratio = estimated_duration / original_duration
-                if ratio > 1.2:
-                    # 语速最高只加到 +20%，剩下的长度交给视频拉伸处理
-                    rate_str = "+20%"
-                elif ratio < 0.8:
-                    rate_str = "-15%"
-                else:
-                    # 在 0.8 到 1.2 之间，我们按比例调整
-                    increase = int((ratio - 1) * 100)
-                    rate_str = f"{'+' if increase >= 0 else ''}{increase}%"
 
-            await self._generate_audio(text, str(temp_file), rate=rate_str)
-            return i, temp_file
+                # 现在长度足够了，进行叠加（允许微量重叠，确保不掐断声音）
 
-        tasks = [_process_segment(i, seg) for i, seg in enumerate(segments)]
-        results = await asyncio.gather(*tasks)
-        results.sort(key=lambda x: x[0])
+                combined_audio = combined_audio.overlay(seg_audio, position=start_ms)
 
-        # --- 核心优化：高保真对齐 ---
-        print(f"🧩 Merging audio with professional timeline alignment...")
-        combined_audio = AudioSegment.empty()
-        
-        for (i, temp_file), seg in zip(results, segments):
-            start_ms = int(seg['start'] * 1000)
+                
+
+                # 如果叠加后的音频延伸了总长度，combined_audio 会自动变长
+
+                # 但为了保险，我们手动确认长度
+
+                expected_end = start_ms + len(seg_audio)
+
+                if len(combined_audio) < expected_end:
+
+                    # 这种情况很少见，但如果发生了，我们通过拼接静音来强制延展
+
+                    combined_audio += AudioSegment.silent(duration=expected_end - len(combined_audio))
+
+    
+
+                if os.path.exists(temp_file): os.remove(temp_file)
+
             
-            # 读取并检查实际时长
-            seg_audio = AudioSegment.from_mp3(temp_file)
-            
-            # 工业级做法：不再进行 seg_audio = seg_audio[:target_dur] 的暴力裁剪
-            # 这样会切断最后两个词，导致听感极差。
-            # 我们直接按照起始时间点放置，允许它“溢出”到静音区，
-            # 即使稍微重叠也比切断好。
-            
-            # 填充静音
-            if len(combined_audio) < start_ms:
-                combined_audio += AudioSegment.silent(duration=start_ms - len(combined_audio))
-            
-            # 使用 overlay 或者简单的拼接，但为了精准，我们保留 start_ms 的起始位置
-            # 这里我们直接叠加，保证每一段话都在正确的时间点开始
-            combined_audio = combined_audio.overlay(seg_audio, position=start_ms)
-            
-            # 动态更新 combined_audio 长度，确保整个音轨足够长
-            # 如果这一段音频播放完的时间超过了当前总长度，则需要占位
-            if start_ms + len(seg_audio) > len(combined_audio):
-                # 这种方式保证了音频的完整性
-                pass 
-            
-            if os.path.exists(temp_file): os.remove(temp_file)
-            
-        combined_audio.export(output_path, format="wav")
-        return output_path
+
+            # 导出前检查
+
+            if len(combined_audio) <= 1:
+
+                print("❌ Error: Generated audio is empty!")
+
+                return None
+
+                
+
+            print(f"✅ Final audio duration: {len(combined_audio)/1000:.2f}s")
+
+            combined_audio.export(output_path, format="wav")
+
+            return output_path
 
 class IndexTTSProcessor:
     """Advanced TTS using Index-TTS2 with CUDA acceleration and voice cloning."""
