@@ -7,13 +7,13 @@ apt-get update -qq && apt-get install -y ffmpeg -qq
 
 # 2. Install Python requirements
 echo "🐍 Installing Python libraries..."
-# Force reinstall transformers to fix potential corruption
-pip install --upgrade --force-reinstall transformers -q
+# Deep clean and reinstall to fix ImportError
+pip cache purge
+pip uninstall -y transformers -q
+pip install transformers==4.38.0 -q
 pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu118 -q
 pip install accelerate sentencepiece deep-translator -q
 pip install -r requirements.txt -q
-
-# Fix for NLLB model loading in some environments
 pip install protobuf==3.20.3 -q
 
 # 3. Setup Wav2Lip and Index-TTS2
