@@ -21,20 +21,28 @@ class ASRProcessor:
         self.load_model()
         print(f"🎙️ Transcribing: {audio_path}...")
         
+        # 优化参数：增加 word_timestamps 和更精细的 vad 控制
         segments, info = self.model.transcribe(
             audio_path, 
             beam_size=5, 
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500)
+            vad_parameters=dict(min_silence_duration_ms=500),
+            word_timestamps=True,  # 开启词级时间戳，方便后续精细化处理
+            initial_prompt="以下是普通话，请加标点符号。", # 强制要求带标点，有助于断句
         )
         
-        # Convert generator to list to ensure processing is done
         result_segments = []
         for segment in segments:
+            # 如果单句太长（比如超过 10 秒），在这里可以做进一步的逻辑分割
+            # 目前先进行基础清理
+            text = segment.text.strip()
+            if not text:
+                continue
+                
             result_segments.append({
                 "start": segment.start,
                 "end": segment.end,
-                "text": segment.text.strip()
+                "text": text
             })
             
         print(f"✅ Transcription complete. Detected language: {info.language}")

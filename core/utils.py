@@ -65,15 +65,29 @@ class SubtitleGenerator:
         return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
 
     @staticmethod
-    def save_srt(segments, output_path):
+    def wrap_text(text, max_width=40):
+        """Wraps text to a maximum width without breaking words."""
+        import textwrap
+        return "\n".join(textwrap.wrap(text, width=max_width))
+
+    @staticmethod
+    def save_srt(segments, output_path, max_width=50):
         """
-        Saves segments to an SRT file.
-        segments: List of dicts with 'start', 'end', and 'text'
+        Saves segments to an SRT file with professional formatting.
+        - Handles long line wrapping
+        - Cleans up whitespace
         """
         with open(output_path, 'w', encoding='utf-8') as f:
             for i, seg in enumerate(segments, 1):
                 start = SubtitleGenerator.format_time(seg['start'])
                 end = SubtitleGenerator.format_time(seg['end'])
-                text = seg['text'].strip()
-                f.write(f"{i}\n{start} --> {end}\n{text}\n\n")
+                # 过滤空内容
+                text = seg.get('text', '').strip()
+                if not text:
+                    continue
+                
+                # 自动换行处理
+                wrapped_text = SubtitleGenerator.wrap_text(text, max_width=max_width)
+                
+                f.write(f"{i}\n{start} --> {end}\n{wrapped_text}\n\n")
         print(f"📄 Subtitles saved to: {output_path}")
