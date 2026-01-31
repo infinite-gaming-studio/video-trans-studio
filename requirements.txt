@@ -3,9 +3,11 @@ torch>=2.0.0
 torchaudio>=2.0.0
 torchvision>=0.15.0
 transformers>=4.46.0
-accelerate>=0.26.0
+accelerate>=0.33.0
 sentencepiece
-numpy>=2.0.0
+numpy>=2.0.0,<2.1.0
+tensorflow
+
 
 # Audio Processing (Modern versions)
 librosa>=0.10.0
