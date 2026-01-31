@@ -25,10 +25,20 @@ class Config:
     # TTS Configuration
     TTS_VOICE = "en-US-ChristopherNeural" # Default Edge-TTS voice
     
-    # Wav2Lip Configuration
-    WAV2LIP_BATCH_SIZE = 128 # T4 can handle larger batches
+    # Wav2Lip Configuration (Legacy)
+    WAV2LIP_BATCH_SIZE = 128
     WAV2LIP_GAN_WEIGHTS_URL = "https://huggingface.co/goutham79/Wav2Lip-GAN/resolve/main/checkpoints/Wav2Lip_GAN.pth"
     
+    # MuseTalk Configuration (Modern)
+    MUSETALK_REPO_URL = "https://github.com/TMElyralab/MuseTalk.git"
+    MUSETALK_CHECKPOINTS = {
+        "musetalk": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/musetalk/musetalk.pth",
+        "dwpose": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/dwpose/dw-ll_ucoco_384.pth",
+        "face_detection": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/models/face-parse-bisent/79999_iter.pth",
+        "sd_vae": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/sd-vae-ft-mse/diffusion_pytorch_model.bin",
+        "whisper": "https://huggingface.co/TMElyralab/MuseTalk/resolve/main/whisper/tiny.pt"
+    }
+
     @classmethod
     def print_info(cls):
         print(f"✅ Running on: {cls.DEVICE.upper()}")
