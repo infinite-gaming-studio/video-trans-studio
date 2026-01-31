@@ -5,18 +5,24 @@ echo "🚀 Starting Video Trans Studio Colab Setup..."
 echo "📦 Installing system dependencies (ffmpeg)..."
 apt-get update -qq && apt-get install -y ffmpeg -qq
 
-# 2. Install Python requirements
-echo "🐍 Installing Python libraries..."
-# Deep clean and reinstall to fix ImportError
-pip cache purge
-pip uninstall -y transformers -q
-pip install transformers==4.38.0 -q
-pip install torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu118 -q
-pip install accelerate sentencepiece deep-translator -q
-pip install -r requirements.txt -q
-pip install protobuf==3.20.3 -q
+# 2. Deep Clean Python Environment
+echo "🧹 Cleaning up existing packages to prevent conflicts..."
+pip uninstall -y transformers tokenizers protobuf librosa -q
 
-# 3. Setup Wav2Lip and Index-TTS2
+# 3. Install Python requirements in specific order
+echo "🐍 Installing Python libraries (this may take a few minutes)..."
+# A. Base AI Infrastructure
+pip install --no-cache-dir torch torchaudio torchvision --index-url https://download.pytorch.org/whl/cu118 -q
+pip install --no-cache-dir "transformers==4.38.0" "tokenizers>=0.14" "protobuf==3.20.3" -q
+pip install --no-cache-dir accelerate sentencepiece -q
+
+# B. Project Requirements
+pip install --no-cache-dir -r requirements.txt -q
+
+# C. Specific version fixes
+pip install --no-cache-dir librosa==0.8.0 -q
+
+# 4. Setup Wav2Lip and Index-TTS2
 if [ ! -d "Wav2Lip" ]; then
     echo "📥 Cloning Wav2Lip repository..."
     git clone https://github.com/Rudrabha/Wav2Lip.git -q
@@ -24,7 +30,6 @@ fi
 
 if [ ! -d "index-tts" ]; then
     echo "📥 Cloning Index-TTS2 repository (skipping large files)..."
-    # Skip LFS to avoid budget exceeded errors
     GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/index-tts/index-tts.git -q
 fi
 
@@ -32,21 +37,11 @@ fi
 touch Wav2Lip/__init__.py
 find Wav2Lip -name "*.py" -exec sed -i 's/from collections import Iterable/from collections.abc import Iterable/g' {} +
 
-# 4. Create directory structure
+# 5. Create directory structure
 mkdir -p checkpoints output temp
 
-# 5. Download Model Weights
-echo "📥 Downloading AI model weights (Wav2Lip, NLLB, Index-TTS)..."
-if [ ! -f "checkpoints/wav2lip_gan.pth" ]; then
-    wget "https://huggingface.co/goutham79/Wav2Lip-GAN/resolve/main/checkpoints/Wav2Lip_GAN.pth" -O checkpoints/wav2lip_gan.pth -q
-fi
+# 6. Pre-download NLLB model to verify installation
+echo "📥 Verifying Transformers installation..."
+python3 -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; print('✅ Transformers is working correctly!')"
 
-# Pre-download NLLB model
-python3 -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; AutoTokenizer.from_pretrained('facebook/nllb-200-distilled-600M'); AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M')"
-
-# Note: Index-TTS2 weights are large and usually handled by its own script or Git-LFS
-# We will ensure the core dependencies are ready.
-pip install vocos einops vector_quantize_pytorch -q
-
-echo "✅ Setup Complete! Ready to process videos."
-echo "💡 Usage: python main.py your_video.mp4 zh-cn"
+echo "✅ Setup Complete!"
