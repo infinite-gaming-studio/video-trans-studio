@@ -20,39 +20,15 @@ if not hasattr(np, "object"): np.object = object
 
 class TTSProcessor:
     """
-    Industrial-grade TTS Processor using Index-TTS2 for Zero-shot Voice Cloning.
-    Replaces legacy Edge-TTS for high-fidelity, synchronized output.
+    Stable TTS Processor using F5-TTS for Zero-shot Voice Cloning.
+    Offers improved reliability and quality over legacy systems.
     """
-    def __init__(self, device="cuda"):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.repo_path = Config.BASE_DIR / "index-tts"
-        self.model_dir = Config.INDEXTTS_MODEL_DIR
+    def __init__(self, device=None):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
-
-    def setup(self):
-        """Ensures Index-TTS2 repo and models are ready."""
-        if not self.repo_path.exists():
-            print("📥 Cloning Index-TTS2 repository...")
-            subprocess.run(["git", "clone", Config.INDEXTTS_REPO_URL], check=True)
-            # Add to path for imports
-            if str(self.repo_path) not in sys.path:
-                sys.path.append(str(self.repo_path))
-
+        self.model_dir = Config.F5TTS_MODEL_DIR
         self.model_dir.mkdir(parents=True, exist_ok=True)
-        self._download_models()
 
-    def _download_models(self):
-        """Downloads Index-TTS2 weights if missing."""
-        for name, url in Config.INDEXTTS_MODELS.items():
-            dest = self.model_dir / name
-            if not dest.exists():
-                print(f"📥 Downloading Index-TTS2 weight: {name}")
-                response = requests.get(url, stream=True)
-                total = int(response.headers.get('content-length', 0))
-                with open(dest, 'wb') as f, tqdm(total=total, unit='B', unit_scale=True, desc=name) as pbar:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        pbar.update(len(chunk))
 
     def load_model(self):
         """Lazy load F5-TTS model."""
@@ -151,4 +127,4 @@ class TTSProcessor:
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            print("🗑️ Index-TTS2 Unloaded from VRAM.")
+            print("🗑️ F5-TTS Unloaded from VRAM.")
