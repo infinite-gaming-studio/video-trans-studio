@@ -40,27 +40,45 @@ class TTSProcessor:
         # 按索引排序确保顺序正确
         results.sort(key=lambda x: x[0])
 
-        print(f"🧩 Combining audio segments with proper timing...")
+        print(f"🧩 Combining audio segments with Precise Time Matching...")
         combined_audio = AudioSegment.empty()
-        current_time_ms = 0
         
         for (i, temp_file), seg in zip(results, segments):
             start_ms = int(seg['start'] * 1000)
-            silence_duration = start_ms - current_time_ms
+            end_ms = int(seg['end'] * 1000)
+            target_duration = end_ms - start_ms
             
-            if silence_duration > 0:
-                combined_audio += AudioSegment.silent(duration=silence_duration)
-                current_time_ms += silence_duration
+            # 1. 填充静音直到当前片段开始
+            if len(combined_audio) < start_ms:
+                silence_gap = start_ms - len(combined_audio)
+                combined_audio += AudioSegment.silent(duration=silence_gap)
             
+            # 2. 读取生成的音频
             seg_audio = AudioSegment.from_mp3(temp_file)
-            combined_audio += seg_audio
-            current_time_ms += len(seg_audio)
+            actual_duration = len(seg_audio)
+            
+            # 3. 动态倍速处理 (Time Stretching)
+            # 如果翻译后的文本太长，导致音频超过了原视频片段的时长，我们需要对其进行变速
+            # 参考开源项目最佳实践：倍速范围建议在 0.8x 到 1.5x 之间，否则声音会失真严重
+            if actual_duration > target_duration and target_duration > 0:
+                speed_factor = actual_duration / target_duration
+                # 限制最大倍速，避免变成“花栗鼠”声音
+                if speed_factor > 1.5:
+                    print(f"⚠️ Warning: Segment {i} is too long ({actual_duration}ms vs {target_duration}ms). Capping speed factor at 1.5x.")
+                    speed_factor = 1.5
+                
+                # 使用 pydub 的变速功能（注意：这种变速会改变音调，后续可以考虑用 ffmpeg atempo 优化无损音调变速）
+                seg_audio = seg_audio.speedup(playback_speed=speed_factor, chunk_size=150, crossfade=25)
+            
+            # 4. 裁剪多余部分或保留（视逻辑而定，这里我们根据 start_ms 强制对齐）
+            # 确保不覆盖下一个片段（除非不得不覆盖）
+            combined_audio = combined_audio[:start_ms] + seg_audio
             
             # 立即删除小的临时文件
             if os.path.exists(temp_file): os.remove(temp_file)
             
         combined_audio.export(output_path, format="wav")
-        print(f"✅ Audio generated: {output_path}")
+        print(f"✅ Audio generated with sync protection: {output_path}")
         return output_path
 
 class IndexTTSProcessor:
